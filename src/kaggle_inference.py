@@ -25,6 +25,13 @@ from yacs.config import CfgNode as CN
 from src.config.default import get_cfg
 from src.utils import find_config_path, import_class_from_path
 
+try:
+    from src.strategies.physiological_constraints import apply_constraints_to_predictions
+    from src.strategies.test_time_augmentation import create_tta_inference_wrapper
+    STRATEGIES_AVAILABLE = True
+except ImportError:
+    STRATEGIES_AVAILABLE = False
+
 # Standard 12-lead ECG order
 LEAD_NAMES = ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
 LEAD_II_INDEX = 1  # Index of Lead II in the standard order
@@ -97,6 +104,8 @@ def process_single_image(
     image_id: str,
     fs: float,
     inference_wrapper: Any,
+    use_constraints: bool = False,
+    constraint_alpha: float = 0.3,
 ) -> dict[str, npt.NDArray[Any]]:
     """Process a single ECG image and return digitized signals.
 
@@ -105,6 +114,8 @@ def process_single_image(
         image_id: Image identifier from test.csv.
         fs: Sampling frequency in Hz.
         inference_wrapper: Initialized inference wrapper model.
+        use_constraints: Whether to apply physiological constraints.
+        constraint_alpha: Strength of constraint enforcement.
 
     Returns:
         Dictionary mapping lead names to signal arrays in mV.
@@ -137,6 +148,13 @@ def process_single_image(
     if signals.ndim == 1:
         signals = signals[None, :]
 
+    # Convert from µV to mV before applying constraints
+    signals = signals / 1000.0  # Now in mV
+
+    # Apply physiological constraints if enabled
+    if use_constraints and STRATEGIES_AVAILABLE:
+        signals = apply_constraints_to_predictions(signals, fs=fs, alpha=constraint_alpha)
+
     # Calculate target lengths for each lead
     lead_ii_samples = int(np.floor(fs * 10))  # 10 seconds for Lead II
     other_samples = int(np.floor(fs * 2.5))   # 2.5 seconds for other leads
@@ -161,10 +179,7 @@ def process_single_image(
         # Resample to target length
         resampled_signal = resample_signal(signal, target_samples)
 
-        # Convert from µV to mV
-        signal_mv = convert_units_uv_to_mv(resampled_signal)
-
-        results[lead_name] = signal_mv
+        results[lead_name] = resampled_signal
 
     return results
 
@@ -208,6 +223,12 @@ def main(config: CN) -> None:
     test_images_dir = config.DATA.test_images_dir
     submission_path = config.DATA.submission_path
 
+    # Check for strategy flags
+    use_tta = config.get("STRATEGIES", {}).get("use_tta", False)
+    use_physiological_constraints = config.get("STRATEGIES", {}).get("use_physiological_constraints", False)
+    tta_n_augmentations = config.get("STRATEGIES", {}).get("tta_n_augmentations", 10)
+    constraint_alpha = config.get("STRATEGIES", {}).get("constraint_alpha", 0.3)
+
     print(f"Loading test metadata from {test_csv_path}")
     test_df = pd.read_csv(test_csv_path)
 
@@ -217,8 +238,17 @@ def main(config: CN) -> None:
 
     # Initialize inference wrapper
     print("Initializing inference model...")
-    inference_wrapper_class = import_class_from_path(config.MODEL.class_path)
-    inference_wrapper = inference_wrapper_class(**config.MODEL.KWARGS)
+
+    if use_tta and STRATEGIES_AVAILABLE:
+        print(f"  ✨ Using Test-Time Augmentation with {tta_n_augmentations} augmentations")
+        inference_wrapper = create_tta_inference_wrapper(config, n_augmentations=tta_n_augmentations)
+    else:
+        inference_wrapper_class = import_class_from_path(config.MODEL.class_path)
+        inference_wrapper = inference_wrapper_class(**config.MODEL.KWARGS)
+
+    if use_physiological_constraints and STRATEGIES_AVAILABLE:
+        print(f"  ✨ Using Physiological Constraints (alpha={constraint_alpha})")
+
     print("Model initialized successfully")
 
     # Process each image
@@ -254,6 +284,8 @@ def main(config: CN) -> None:
                 image_id=image_id,
                 fs=fs,
                 inference_wrapper=inference_wrapper,
+                use_constraints=use_physiological_constraints,
+                constraint_alpha=constraint_alpha,
             )
             all_predictions[image_id] = predictions
 

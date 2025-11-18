@@ -64,3 +64,13 @@ DATA:
 
   # Output path for submission.csv
   submission_path: './submission.csv'
+
+STRATEGIES:
+  # Enable test-time augmentation for improved robustness
+  use_tta: false
+  tta_n_augmentations: 10
+
+  # Enable physiological constraint enforcement
+  use_physiological_constraints: false
+  constraint_alpha: 0.3  # Strength of constraint (0 = none, 1 = full)
+
