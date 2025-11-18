@@ -1,0 +1,66 @@
+MODEL:
+  class_path: 'src.model.inference_wrapper.InferenceWrapper'
+  KWARGS:
+    config:
+      SIGNAL_EXTRACTOR:
+        class_path: 'src.model.signal_extractor.SignalExtractor'
+        KWARGS: {}
+
+      PERSPECTIVE_DETECTOR:
+        class_path: 'src.model.perspective_detector.PerspectiveDetector'
+        KWARGS:
+          num_thetas: 250
+
+      DEWARPER:
+        class_path: 'src.model.dewarper.Dewarper'
+        KWARGS:
+          abs_peak_threshold: 0.1
+
+      SEGMENTATION_MODEL:
+        class_path: 'src.model.unet.UNet'
+        weight_path: './weights/unet_weights_07072025.pt'
+        KWARGS:
+          num_in_channels: 3
+          num_out_channels: 4
+          dims: [32, 64, 128, 256, 320, 320, 320, 320]
+          depth: 2
+
+      CROPPER:
+        class_path: 'src.model.cropper.Cropper'
+        KWARGS:
+          granularity: 80
+          percentiles: [0.02, 0.98]
+          alpha: 0.85
+
+      PIXEL_SIZE_FINDER:
+        class_path: 'src.model.pixel_size_finder.PixelSizeFinder'
+        KWARGS:
+          min_number_of_grid_lines: 30
+          max_number_of_grid_lines: 70
+          lower_grid_line_factor: 0.3
+
+      LAYOUT_IDENTIFIER:
+        class_path: 'src.model.lead_identifier.LeadIdentifier'
+        config_path: 'src/config/lead_layouts_george-moody-2024.yml'
+        unet_config_path: 'src/config/lead_name_unet.yml'
+        unet_weight_path: './weights/lead_name_unet_weights_07072025.pt'
+        KWARGS:
+          debug: false
+          device: 'cuda'
+          possibly_flipped: true
+
+    device: 'cuda'
+    resample_size: 3000
+    rotate_on_resample: true
+    enable_timing: false
+    apply_dewarping: false
+
+DATA:
+  # Path to test.csv containing metadata (id, fs, number_of_rows)
+  test_csv_path: '/kaggle/input/physionet-ecg-image-digitization/test.csv'
+
+  # Directory containing test images (*.png files)
+  test_images_dir: '/kaggle/input/physionet-ecg-image-digitization/test'
+
+  # Output path for submission.csv
+  submission_path: './submission.csv'

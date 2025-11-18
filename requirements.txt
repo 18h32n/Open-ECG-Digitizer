@@ -1,6 +1,7 @@
 ipython
 matplotlib
 numpy
+pandas
 pillow
 scikit-image
 scipy
