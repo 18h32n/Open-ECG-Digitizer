@@ -1,0 +1,30 @@
+MODEL:
+  class_path: 'src.model.vit2ecg.ViT2ECGWrapper'
+  KWARGS:
+    img_size: 2240
+    num_leads: 12
+    signal_length: 5000
+    device: 'cuda'
+    embed_dim: 768
+    encoder_depth: 12
+    decoder_depth: 6
+    num_heads: 12
+    mlp_ratio: 4.0
+    dropout: 0.1
+
+DATA:
+  # Path to test.csv containing metadata (id, fs, number_of_rows)
+  test_csv_path: '/kaggle/input/physionet-ecg-image-digitization/test.csv'
+
+  # Directory containing test images (*.png files)
+  test_images_dir: '/kaggle/input/physionet-ecg-image-digitization/test'
+
+  # Output path for submission.csv
+  submission_path: './submission_vit2ecg.csv'
+
+STRATEGIES:
+  # ViT2ECG is end-to-end, so we can still apply strategies
+  use_tta: false
+  tta_n_augmentations: 10
+  use_physiological_constraints: true
+  constraint_alpha: 0.3
