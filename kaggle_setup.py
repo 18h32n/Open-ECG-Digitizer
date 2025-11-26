@@ -22,9 +22,20 @@ print("✅ Dependencies installed!")
 # ============================================================================
 # CELL 3: Download Pre-trained Weights
 # ============================================================================
-print("⚖️ Downloading pre-trained weights...")
+print("⚖️ Installing Git LFS and downloading weights...")
+!apt-get install -qq git-lfs
+!git lfs install
 !git lfs pull
-print("✅ Weights downloaded!")
+
+# Verify weights downloaded correctly (not LFS pointers)
+import os
+unet_size = os.path.getsize('weights/unet_weights_07072025.pt')
+lead_size = os.path.getsize('weights/lead_name_unet_weights_07072025.pt')
+if unet_size < 1000000:  # Less than 1MB means it's a pointer file
+    print("❌ ERROR: Weights are LFS pointers, not actual files!")
+    print("   Try: !git lfs pull --include='weights/*'")
+else:
+    print(f"✅ Weights downloaded! (UNet: {unet_size/1e6:.1f}MB, LeadNet: {lead_size/1e6:.1f}MB)")
 
 # ============================================================================
 # CELL 4: Verify Installation
