@@ -71,10 +71,14 @@ with open('src/config/kaggle_inference.yml', 'r') as f:
 model_kwargs = config['MODEL']['KWARGS']
 inner_config = CN(model_kwargs['config'])
 
+# Override hardcoded device settings with actual available device
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+inner_config.LAYOUT_IDENTIFIER.KWARGS.device = device
+
 # Initialize model with proper CfgNode config
 model = InferenceWrapper(
     config=inner_config,
-    device='cuda' if torch.cuda.is_available() else 'cpu',
+    device=device,
     resample_size=model_kwargs.get('resample_size'),
     rotate_on_resample=model_kwargs.get('rotate_on_resample', False),
     enable_timing=model_kwargs.get('enable_timing', False),
