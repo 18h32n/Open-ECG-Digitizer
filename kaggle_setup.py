@@ -17,8 +17,8 @@ print("✅ Repository cloned successfully!")
 # ============================================================================
 print("📚 Installing dependencies...")
 !pip install -q pyyaml torch-tps opencv-python-headless pillow pandas tqdm yacs "ray[tune]" scikit-image matplotlib
-# Reinstall scipy to fix numpy compatibility issues on Kaggle
-!pip install -q --force-reinstall scipy
+# Pin scipy to 1.14.1 - scipy 1.15.x requires numpy 2.x but Kaggle has numpy 1.26.x
+!pip install -q scipy==1.14.1
 print("✅ Dependencies installed!")
 
 # ============================================================================
