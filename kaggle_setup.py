@@ -16,9 +16,9 @@ print("✅ Repository cloned successfully!")
 # CELL 2: Install Additional Dependencies
 # ============================================================================
 print("📚 Installing dependencies...")
+# CRITICAL: Pin numpy<2 FIRST to prevent upgrade that breaks sklearn, tensorflow, numba
+!pip install -q "numpy<2" scipy==1.14.1 "scikit-learn>=1.3"
 !pip install -q pyyaml torch-tps opencv-python-headless pillow pandas tqdm yacs "ray[tune]" scikit-image matplotlib
-# Pin scipy to 1.14.1 - scipy 1.15.x requires numpy 2.x but Kaggle has numpy 1.26.x
-!pip install -q scipy==1.14.1
 print("✅ Dependencies installed!")
 
 # ============================================================================
