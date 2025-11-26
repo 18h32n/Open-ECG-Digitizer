@@ -16,7 +16,7 @@ print("✅ Repository cloned successfully!")
 # CELL 2: Install Additional Dependencies
 # ============================================================================
 print("📚 Installing dependencies...")
-!pip install -q pyyaml torch-tps
+!pip install -q pyyaml torch-tps opencv-python-headless scipy pillow pandas tqdm yacs "ray[tune]" scikit-image matplotlib
 print("✅ Dependencies installed!")
 
 # ============================================================================
@@ -48,20 +48,30 @@ else:
 # CELL 6: Quick Test
 # ============================================================================
 print("🧪 Running quick test...")
-from src.inference_wrapper import InferenceWrapper
+from src.model.inference_wrapper import InferenceWrapper
+from yacs.config import CfgNode as CN
 import yaml
+import torch
 
 with open('src/config/kaggle_inference.yml', 'r') as f:
     config = yaml.safe_load(f)
 
-# Override paths for Kaggle
-config['DATA']['test_csv_path'] = '/kaggle/input/physionet-ecg-image-digitization/test.csv'
-config['DATA']['test_images_dir'] = '/kaggle/input/physionet-ecg-image-digitization/test'
-config['DATA']['submission_path'] = '/kaggle/working/submission.csv'
+# Extract model kwargs and convert inner config to CfgNode
+model_kwargs = config['MODEL']['KWARGS']
+inner_config = CN(model_kwargs['config'])
 
-print("✅ Ready to run inference!")
-print("\n📝 To create submission, run:")
-print("!python -m src.kaggle_inference --config src/config/kaggle_inference.yml")
+# Initialize model with proper CfgNode config
+model = InferenceWrapper(
+    config=inner_config,
+    device='cuda' if torch.cuda.is_available() else 'cpu',
+    resample_size=model_kwargs.get('resample_size'),
+    rotate_on_resample=model_kwargs.get('rotate_on_resample', False),
+    enable_timing=model_kwargs.get('enable_timing', False),
+    apply_dewarping=model_kwargs.get('apply_dewarping', True)
+)
+
+print("✅ Model loaded successfully!")
+print("🎯 Ready for inference")
 
 # ============================================================================
 # CELL 7: Run Inference (Basic)
@@ -85,9 +95,9 @@ print("🚀 Running inference with TTA + Physiological Constraints...")
     DATA.test_csv_path=/kaggle/input/physionet-ecg-image-digitization/test.csv \
     DATA.test_images_dir=/kaggle/input/physionet-ecg-image-digitization/test \
     DATA.submission_path=/kaggle/working/submission_enhanced.csv \
-    STRATEGIES.use_tta=true \
+    STRATEGIES.use_tta=True \
     STRATEGIES.tta_n_augmentations=10 \
-    STRATEGIES.use_physiological_constraints=true \
+    STRATEGIES.use_physiological_constraints=True \
     STRATEGIES.constraint_alpha=0.3
 
 print("✅ Enhanced inference complete!")

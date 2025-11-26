@@ -234,9 +234,9 @@ class OCRLayoutDetector:
 
         # Load weights if provided
         if text_detector_path:
-            self.text_detector.load_state_dict(torch.load(text_detector_path, map_location=device))
+            self.text_detector.load_state_dict(torch.load(text_detector_path, weights_only=False, map_location=device))
         if text_recognizer_path:
-            self.text_recognizer.load_state_dict(torch.load(text_recognizer_path, map_location=device))
+            self.text_recognizer.load_state_dict(torch.load(text_recognizer_path, weights_only=False, map_location=device))
 
         self.text_detector.eval()
         self.text_recognizer.eval()

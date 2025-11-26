@@ -334,7 +334,7 @@ class InferenceWrapper(Module):
         unet_cfg = yaml.safe_load(open(self.config.LAYOUT_IDENTIFIER.unet_config_path, "r"))
         unet_class = import_class_from_path(unet_cfg["MODEL"]["class_path"])
         unet: torch.nn.Module = unet_class(**unet_cfg["MODEL"]["KWARGS"])
-        checkpoint = torch.load(self.config.LAYOUT_IDENTIFIER.unet_weight_path, map_location=self.device)
+        checkpoint = torch.load(self.config.LAYOUT_IDENTIFIER.unet_weight_path, weights_only=False, map_location=self.device)
         checkpoint = {k.replace("_orig_mod.", ""): v for k, v in checkpoint.items()}
         unet.load_state_dict(checkpoint)
         unet.eval()
@@ -353,7 +353,7 @@ class InferenceWrapper(Module):
         Args:
             segmentation_model: The model to load weights into.
         """
-        checkpoint = torch.load(self.config.SEGMENTATION_MODEL.weight_path, weights_only=True, map_location=self.device)
+        checkpoint = torch.load(self.config.SEGMENTATION_MODEL.weight_path, weights_only=False, map_location=self.device)
         if isinstance(checkpoint, tuple):
             checkpoint = checkpoint[0]
         checkpoint = {k.replace("_orig_mod.", ""): v for k, v in checkpoint.items()}

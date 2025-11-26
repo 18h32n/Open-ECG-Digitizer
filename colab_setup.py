@@ -35,7 +35,7 @@ print("✅ Repository cloned successfully!")
 # CELL 3: Install Dependencies
 # ============================================================================
 print("📚 Installing dependencies...")
-!pip install -q pyyaml torch-tps opencv-python-headless scipy pillow pandas tqdm
+!pip install -q pyyaml torch-tps opencv-python-headless scipy pillow pandas tqdm yacs "ray[tune]" scikit-image matplotlib
 print("✅ Dependencies installed!")
 
 # ============================================================================
@@ -58,27 +58,46 @@ print("💡 Use this to save results persistently")
 # CELL 6: Download Competition Data
 # ============================================================================
 """
-Option A: Using Kaggle API (recommended)
-1. Download kaggle.json from Kaggle (Account → API → Create New Token)
-2. Upload to Google Drive: /content/drive/MyDrive/kaggle.json
+SETUP KAGGLE CREDENTIALS:
+1. Go to https://www.kaggle.com/settings
+2. Scroll to "API" section → Click "Create New Token"
+3. This downloads kaggle.json to your computer
+4. Run this cell - it will prompt you to upload the file
 """
+
+import os
+from google.colab import files
 
 print("🔐 Setting up Kaggle API...")
 !mkdir -p ~/.kaggle
-!cp /content/drive/MyDrive/kaggle.json ~/.kaggle/
-!chmod 600 ~/.kaggle/kaggle.json
 
-print("📥 Downloading competition data...")
+# Check if kaggle.json already exists
+kaggle_path = os.path.expanduser('~/.kaggle/kaggle.json')
+drive_kaggle_path = '/content/drive/MyDrive/kaggle.json'
+
+if os.path.exists(kaggle_path):
+    print("✅ Kaggle credentials already configured!")
+elif os.path.exists(drive_kaggle_path):
+    print("📁 Found kaggle.json in Google Drive, copying...")
+    !cp {drive_kaggle_path} ~/.kaggle/
+    !chmod 600 ~/.kaggle/kaggle.json
+    print("✅ Kaggle credentials configured from Google Drive!")
+else:
+    print("📤 Please upload your kaggle.json file:")
+    print("   (Get it from https://www.kaggle.com/settings → API → Create New Token)")
+    uploaded = files.upload()
+    if 'kaggle.json' in uploaded:
+        !mv kaggle.json ~/.kaggle/
+        !chmod 600 ~/.kaggle/kaggle.json
+        print("✅ Kaggle credentials configured!")
+    else:
+        raise FileNotFoundError("kaggle.json not uploaded. Please run this cell again.")
+
+print("\n📥 Downloading competition data...")
 !kaggle competitions download -c physionet-ecg-image-digitization
+!mkdir -p /content/data
 !unzip -q physionet-ecg-image-digitization.zip -d /content/data/
 print("✅ Competition data downloaded to /content/data/")
-
-"""
-Option B: Manual Upload
-1. Download data from Kaggle competition page
-2. Upload to Colab: Files → Upload to session storage
-3. Or upload to Google Drive: /content/drive/MyDrive/kaggle_data/
-"""
 
 # ============================================================================
 # CELL 7: Verify Installation
@@ -92,7 +111,8 @@ print("✅ All 10 implementations validated!")
 # ============================================================================
 print("🧪 Running quick test on single image...")
 
-from src.inference_wrapper import InferenceWrapper
+from src.model.inference_wrapper import InferenceWrapper
+from yacs.config import CfgNode as CN
 import yaml
 import numpy as np
 
@@ -100,10 +120,18 @@ import numpy as np
 with open('src/config/kaggle_inference.yml', 'r') as f:
     config = yaml.safe_load(f)
 
-# Initialize model
+# Extract model kwargs and convert inner config to CfgNode
+model_kwargs = config['MODEL']['KWARGS']
+inner_config = CN(model_kwargs['config'])
+
+# Initialize model with proper CfgNode config
 model = InferenceWrapper(
-    config=config['MODEL']['KWARGS'],
-    device='cuda' if torch.cuda.is_available() else 'cpu'
+    config=inner_config,
+    device='cuda' if torch.cuda.is_available() else 'cpu',
+    resample_size=model_kwargs.get('resample_size'),
+    rotate_on_resample=model_kwargs.get('rotate_on_resample', False),
+    enable_timing=model_kwargs.get('enable_timing', False),
+    apply_dewarping=model_kwargs.get('apply_dewarping', True)
 )
 
 print("✅ Model loaded successfully!")
@@ -133,9 +161,9 @@ print("🚀 Running enhanced inference with TTA + Constraints...")
     DATA.test_images_dir=/content/data/test \
     DATA.submission_path=/content/drive/MyDrive/submission_enhanced.csv \
     MODEL.KWARGS.device='cuda' \
-    STRATEGIES.use_tta=true \
+    STRATEGIES.use_tta=True \
     STRATEGIES.tta_n_augmentations=10 \
-    STRATEGIES.use_physiological_constraints=true \
+    STRATEGIES.use_physiological_constraints=True \
     STRATEGIES.constraint_alpha=0.3
 
 print("✅ Enhanced inference complete!")
