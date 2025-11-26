@@ -16,7 +16,9 @@ print("✅ Repository cloned successfully!")
 # CELL 2: Install Additional Dependencies
 # ============================================================================
 print("📚 Installing dependencies...")
-!pip install -q pyyaml torch-tps opencv-python-headless scipy pillow pandas tqdm yacs "ray[tune]" scikit-image matplotlib
+!pip install -q pyyaml torch-tps opencv-python-headless pillow pandas tqdm yacs "ray[tune]" scikit-image matplotlib
+# Reinstall scipy to fix numpy compatibility issues on Kaggle
+!pip install -q --force-reinstall scipy
 print("✅ Dependencies installed!")
 
 # ============================================================================
