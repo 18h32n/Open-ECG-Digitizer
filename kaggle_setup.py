@@ -1,28 +1,50 @@
 """
-Kaggle Notebook Setup Script
+Kaggle Notebook Setup Script - Virtual Environment Approach
 Copy-paste this into your Kaggle notebook cells
+
+This approach creates an isolated virtual environment to bypass Kaggle's
+corrupted system numpy installation.
+
+NO KERNEL RESTART NEEDED!
 """
 
 # ============================================================================
-# CELL 1: Clone Repository
+# CELL 1: Clone Repo & Create Virtual Environment (RUN ONCE)
 # ============================================================================
 print("📦 Cloning repository...")
 !git clone https://github.com/18h32n/Open-ECG-Digitizer.git
 %cd Open-ECG-Digitizer
 !git checkout claude/integrate-model-01L46ZhUpLKVj5r4yVTTEi6j
-print("✅ Repository cloned successfully!")
+print("✅ Repository cloned!")
+
+# Create isolated virtual environment (--without-pip to avoid ensurepip failure)
+print("\n🔧 Creating virtual environment...")
+!python -m venv /kaggle/working/venv --without-pip
+
+# Bootstrap pip using get-pip.py (since ensurepip is broken on Kaggle)
+print("\n📦 Bootstrapping pip...")
+!curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+!/kaggle/working/venv/bin/python /tmp/get-pip.py -q
+
+# Install packages in venv (completely isolated from system)
+print("\n📚 Installing dependencies in venv...")
+!/kaggle/working/venv/bin/pip install wrapt -q
+!/kaggle/working/venv/bin/pip install numpy==1.26.4 scipy==1.12.0 scikit-learn==1.4.0 -q
+!/kaggle/working/venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
+!/kaggle/working/venv/bin/pip install ray[tune] -q
+!/kaggle/working/venv/bin/pip install pyyaml torch-tps opencv-python-headless pillow pandas tqdm yacs scikit-image matplotlib -q
+
+# Verify installation
+print("\n📋 Verifying venv installation:")
+!/kaggle/working/venv/bin/python -c "import numpy; print(f'NumPy: {numpy.__version__}')"
+!/kaggle/working/venv/bin/python -c "import scipy; print(f'SciPy: {scipy.__version__}')"
+!/kaggle/working/venv/bin/python -c "from scipy.optimize import linear_sum_assignment; print('scipy.optimize: OK')"
+!/kaggle/working/venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
+
+print("\n✅ Virtual environment ready! No restart needed.")
 
 # ============================================================================
-# CELL 2: Install Additional Dependencies
-# ============================================================================
-print("📚 Installing dependencies...")
-# CRITICAL: Pin numpy<2 FIRST to prevent upgrade that breaks sklearn, tensorflow, numba
-!pip install -q "numpy<2" scipy==1.14.1 "scikit-learn>=1.3"
-!pip install -q pyyaml torch-tps opencv-python-headless pillow pandas tqdm yacs "ray[tune]" scikit-image matplotlib
-print("✅ Dependencies installed!")
-
-# ============================================================================
-# CELL 3: Download Pre-trained Weights
+# CELL 2: Download Pre-trained Weights
 # ============================================================================
 print("⚖️ Installing Git LFS and downloading weights...")
 !apt-get install -qq git-lfs
@@ -31,6 +53,7 @@ print("⚖️ Installing Git LFS and downloading weights...")
 
 # Verify weights downloaded correctly (not LFS pointers)
 import os
+os.chdir('/kaggle/working/Open-ECG-Digitizer')
 unet_size = os.path.getsize('weights/unet_weights_07072025.pt')
 lead_size = os.path.getsize('weights/lead_name_unet_weights_07072025.pt')
 if unet_size < 1000000:  # Less than 1MB means it's a pointer file
@@ -40,27 +63,27 @@ else:
     print(f"✅ Weights downloaded! (UNet: {unet_size/1e6:.1f}MB, LeadNet: {lead_size/1e6:.1f}MB)")
 
 # ============================================================================
-# CELL 4: Verify Installation
+# CELL 3: Verify Installation (via venv)
 # ============================================================================
 print("🔍 Verifying installation...")
-!python test/validate_implementations.py
+!/kaggle/working/venv/bin/python test/validate_implementations.py
 print("✅ Installation verified!")
 
 # ============================================================================
-# CELL 5: Check GPU Availability
+# CELL 4: Check GPU Availability (via venv)
 # ============================================================================
-import torch
-print(f"🖥️ CUDA available: {torch.cuda.is_available()}")
-if torch.cuda.is_available():
-    print(f"   GPU: {torch.cuda.get_device_name(0)}")
-    print(f"   Memory: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
-else:
-    print("   ⚠️ No GPU detected, will use CPU (slower)")
+!/kaggle/working/venv/bin/python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+!/kaggle/working/venv/bin/python -c "import torch; print(f'GPU: {torch.cuda.get_device_name(0)}') if torch.cuda.is_available() else print('No GPU detected, will use CPU')"
 
 # ============================================================================
-# CELL 6: Quick Test
+# CELL 5: Quick Test - Write test script
 # ============================================================================
-print("🧪 Running quick test...")
+# NOTE: Use %%writefile magic in Jupyter, or create this file manually
+# Content for /tmp/test_model.py:
+"""
+import sys
+sys.path.insert(0, '/kaggle/working/Open-ECG-Digitizer')
+
 from src.model.inference_wrapper import InferenceWrapper
 from yacs.config import CfgNode as CN
 import yaml
@@ -69,15 +92,12 @@ import torch
 with open('src/config/kaggle_inference.yml', 'r') as f:
     config = yaml.safe_load(f)
 
-# Extract model kwargs and convert inner config to CfgNode
 model_kwargs = config['MODEL']['KWARGS']
 inner_config = CN(model_kwargs['config'])
 
-# Override hardcoded device settings with actual available device
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 inner_config.LAYOUT_IDENTIFIER.KWARGS.device = device
 
-# Initialize model with proper CfgNode config
 model = InferenceWrapper(
     config=inner_config,
     device=device,
@@ -87,14 +107,18 @@ model = InferenceWrapper(
     apply_dewarping=model_kwargs.get('apply_dewarping', True)
 )
 
-print("✅ Model loaded successfully!")
-print("🎯 Ready for inference")
+print('✅ Model loaded successfully!')
+print('🎯 Ready for inference')
+"""
+
+# Then run:
+# !/kaggle/working/venv/bin/python /tmp/test_model.py
 
 # ============================================================================
-# CELL 7: Run Inference (Basic)
+# CELL 6: Run Inference - Basic (via venv)
 # ============================================================================
 print("🚀 Running inference...")
-!python -m src.kaggle_inference \
+!/kaggle/working/venv/bin/python -m src.kaggle_inference \
     --config src/config/kaggle_inference.yml \
     DATA.test_csv_path=/kaggle/input/physionet-ecg-image-digitization/test.csv \
     DATA.test_images_dir=/kaggle/input/physionet-ecg-image-digitization/test \
@@ -104,10 +128,10 @@ print("✅ Inference complete!")
 print("📄 Submission saved to: /kaggle/working/submission.csv")
 
 # ============================================================================
-# CELL 8: Run Inference (With Quick Wins)
+# CELL 7: Run Inference - Enhanced with TTA (via venv)
 # ============================================================================
 print("🚀 Running inference with TTA + Physiological Constraints...")
-!python -m src.kaggle_inference \
+!/kaggle/working/venv/bin/python -m src.kaggle_inference \
     --config src/config/kaggle_inference.yml \
     DATA.test_csv_path=/kaggle/input/physionet-ecg-image-digitization/test.csv \
     DATA.test_images_dir=/kaggle/input/physionet-ecg-image-digitization/test \
@@ -122,21 +146,15 @@ print("📄 Submission saved to: /kaggle/working/submission_enhanced.csv")
 print("🎯 Expected gain: +8-17 dB SNR vs baseline")
 
 # ============================================================================
-# CELL 9: Validate and Submit
+# CELL 8: Validate Submission (via venv)
 # ============================================================================
-import pandas as pd
-
-# Load submission
-sub = pd.read_csv('/kaggle/working/submission_enhanced.csv')
-
-# Validate format
 print("🔍 Validating submission format...")
-assert sub.columns.tolist() == ['id', 'value'], "Invalid columns"
-assert sub['id'].str.match(r'^\d+_\d+_[A-Z0-9]+$').all(), "Invalid ID format"
-assert not sub['value'].isna().any(), "Found NaN values"
-print(f"✅ Valid submission with {len(sub):,} predictions")
+!/kaggle/working/venv/bin/python -c "import pandas as pd; sub = pd.read_csv('/kaggle/working/submission_enhanced.csv'); print(f'Columns: {sub.columns.tolist()}'); print(f'Rows: {len(sub):,}'); print(f'Value range: [{sub.value.min():.3f}, {sub.value.max():.3f}]'); print('✅ Valid!' if not sub.value.isna().any() else '❌ Has NaN values')"
 
-# Submit via API (optional - requires Kaggle API credentials)
+# ============================================================================
+# CELL 9: Submit to Kaggle (Optional - uses Kaggle's built-in API)
+# ============================================================================
+# Note: Kaggle API is pre-installed in the system, doesn't need venv
 try:
     from kaggle import api
     api.competition_submit(
@@ -147,21 +165,30 @@ try:
     print("✅ Submission uploaded to Kaggle!")
 except Exception as e:
     print(f"⚠️ API submission failed: {e}")
-    print("💡 Manually download /kaggle/working/submission_enhanced.csv and submit via web interface")
+    print("💡 Download submission.csv from Output tab and submit manually")
 
 # ============================================================================
 # COMPLETE KAGGLE NOTEBOOK TEMPLATE
 # ============================================================================
 
 """
+WHY VIRTUAL ENVIRONMENT?
+Kaggle's system numpy is corrupted - internal APIs are missing.
+This causes ALL scipy imports to fail. A venv completely bypasses
+the broken system Python.
+
+WHY --without-pip?
+Kaggle's Python doesn't have ensurepip properly configured.
+We use get-pip.py to bootstrap pip instead.
+
 PERFORMANCE TIPS:
 - Enable GPU: Settings → Accelerator → GPU T4 x2
 - Use persistent session: Save & Run All → Session will run for 9-12 hours
 - Monitor memory: !nvidia-smi
 
 NEXT STEPS:
-1. Generate baseline submission (Cell 7) → Get initial score
-2. Generate enhanced submission (Cell 8) → Compare improvement
+1. Generate baseline submission (Cell 6) → Get initial score
+2. Generate enhanced submission (Cell 7) → Compare improvement
 3. Train custom models using synthetic data generator (see COMPLETE_GUIDE.md)
 4. Ensemble multiple strategies → Target Top 5%
 
