@@ -28,25 +28,40 @@ print("\n📦 Bootstrapping pip...")
 
 # Install packages in venv (completely isolated from system)
 print("\n📚 Installing dependencies in venv...")
+
+# Create constraints file to lock numpy and opencv versions
+!echo "numpy==1.26.4" > /tmp/constraints.txt
+!echo "opencv-python-headless==4.10.0.84" >> /tmp/constraints.txt
+
 !/kaggle/working/venv/bin/pip install wrapt -q
 
 # Install numpy first to establish version baseline
-!/kaggle/working/venv/bin/pip install "numpy==1.26.4" -q
+!/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt "numpy==1.26.4" -q
+
+# Install opencv BEFORE other packages that might depend on it
+# opencv-python-headless 4.10.0.84 is last version compatible with numpy 1.26.4
+!/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt "opencv-python-headless==4.10.0.84" -q
 
 # Install scipy without deps to prevent numpy upgrade
-!/kaggle/working/venv/bin/pip install scipy==1.12.0 --no-deps -q
+!/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt scipy==1.12.0 --no-deps -q
 
 # Install scikit-learn (verifies numpy compatibility)
-!/kaggle/working/venv/bin/pip install scikit-learn==1.4.0 -q
+!/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt scikit-learn==1.4.0 -q
 
-# Install PyTorch with CUDA support
-!/kaggle/working/venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
+# Install PyTorch with CUDA support (with constraints to prevent numpy upgrade)
+!/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
 
-# Install Ray with tune support
-!/kaggle/working/venv/bin/pip install "ray[tune]" -q
+# Install Ray with tune support (with constraints)
+!/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt "ray[tune]" -q
 
-# Install remaining packages
-!/kaggle/working/venv/bin/pip install pyyaml torch-tps opencv-python-headless pillow pandas tqdm yacs scikit-image matplotlib -q
+# Install remaining packages with constraints (opencv already installed, will be skipped)
+!/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt pyyaml torch-tps pillow pandas tqdm yacs scikit-image matplotlib -q
+
+# Fix matplotlib backend error BEFORE verification (Kaggle sets incompatible MPLBACKEND)
+import os
+if 'MPLBACKEND' in os.environ:
+    del os.environ['MPLBACKEND']
+os.environ['MPLBACKEND'] = 'Agg'  # Non-interactive backend
 
 # Verify installation
 print("\n📋 Verifying venv installation:")
@@ -55,6 +70,7 @@ print("\n📋 Verifying venv installation:")
 !/kaggle/working/venv/bin/python -c "from scipy.optimize import linear_sum_assignment; print('scipy.optimize: OK')"
 !/kaggle/working/venv/bin/python -c "import sklearn; print(f'scikit-learn: {sklearn.__version__}')"
 !/kaggle/working/venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
+!/kaggle/working/venv/bin/python -c "import cv2; print(f'OpenCV: {cv2.__version__}'); assert cv2.__version__ == '4.10.0', f'Wrong opencv version: {cv2.__version__}'"
 !/kaggle/working/venv/bin/python -c "import matplotlib; print(f'Matplotlib: {matplotlib.__version__}, Backend: {matplotlib.get_backend()}')"
 
 print("\n✅ Virtual environment ready! No restart needed.")
@@ -140,12 +156,19 @@ print('🎯 Ready for inference')
 # ============================================================================
 # CELL 6: Run Inference - Basic (via venv)
 # ============================================================================
+# Detect available device (CPU or CUDA)
+import torch
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f"🖥️ Using device: {device}")
+
 print("🚀 Running inference...")
 !/kaggle/working/venv/bin/python -m src.kaggle_inference \
     --config src/config/kaggle_inference.yml \
     DATA.test_csv_path=/kaggle/input/physionet-ecg-image-digitization/test.csv \
     DATA.test_images_dir=/kaggle/input/physionet-ecg-image-digitization/test \
-    DATA.submission_path=/kaggle/working/submission.csv
+    DATA.submission_path=/kaggle/working/submission.csv \
+    MODEL.KWARGS.device={device} \
+    MODEL.KWARGS.config.LAYOUT_IDENTIFIER.KWARGS.device={device}
 
 print("✅ Inference complete!")
 print("📄 Submission saved to: /kaggle/working/submission.csv")
@@ -153,12 +176,19 @@ print("📄 Submission saved to: /kaggle/working/submission.csv")
 # ============================================================================
 # CELL 7: Run Inference - Enhanced with TTA (via venv)
 # ============================================================================
+# Detect available device (CPU or CUDA)
+import torch
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f"🖥️ Using device: {device}")
+
 print("🚀 Running inference with TTA + Physiological Constraints...")
 !/kaggle/working/venv/bin/python -m src.kaggle_inference \
     --config src/config/kaggle_inference.yml \
     DATA.test_csv_path=/kaggle/input/physionet-ecg-image-digitization/test.csv \
     DATA.test_images_dir=/kaggle/input/physionet-ecg-image-digitization/test \
     DATA.submission_path=/kaggle/working/submission_enhanced.csv \
+    MODEL.KWARGS.device={device} \
+    MODEL.KWARGS.config.LAYOUT_IDENTIFIER.KWARGS.device={device} \
     STRATEGIES.use_tta=True \
     STRATEGIES.tta_n_augmentations=10 \
     STRATEGIES.use_physiological_constraints=True \

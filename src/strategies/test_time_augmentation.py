@@ -95,6 +95,12 @@ class TestTimeAugmentation:
         """
         aug_image = image.clone()
 
+        # Convert to float for grid_sample operations (requires float tensors, not Byte)
+        # grid_sample throws "grid_sampler_2d_cpu_kernel_impl not implemented for 'Byte'"
+        # Also normalize to [0, 1] range for consistent brightness/contrast operations
+        if aug_image.dtype == torch.uint8:
+            aug_image = aug_image.float() / 255.0
+
         # Flip horizontal
         if config["flip_h"]:
             aug_image = torch.flip(aug_image, dims=[3])
