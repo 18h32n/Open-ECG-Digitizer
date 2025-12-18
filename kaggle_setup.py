@@ -24,28 +24,51 @@ print("\n🔧 Creating virtual environment...")
 # Bootstrap pip using get-pip.py (since ensurepip is broken on Kaggle)
 print("\n📦 Bootstrapping pip...")
 !curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
-!/kaggle/working/venv/bin/python /tmp/get-pip.py -q
+!PYTHONNOUSERSITE=1 /kaggle/working/venv/bin/python /tmp/get-pip.py -q
 
 # Install packages in venv (completely isolated from system)
 print("\n📚 Installing dependencies in venv...")
 !/kaggle/working/venv/bin/pip install wrapt -q
-!/kaggle/working/venv/bin/pip install numpy==1.26.4 scipy==1.12.0 scikit-learn==1.4.0 -q
+
+# Install numpy first to establish version baseline
+!/kaggle/working/venv/bin/pip install "numpy==1.26.4" -q
+
+# Install scipy without deps to prevent numpy upgrade
+!/kaggle/working/venv/bin/pip install scipy==1.12.0 --no-deps -q
+
+# Install scikit-learn (verifies numpy compatibility)
+!/kaggle/working/venv/bin/pip install scikit-learn==1.4.0 -q
+
+# Install PyTorch with CUDA support
 !/kaggle/working/venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
-!/kaggle/working/venv/bin/pip install ray[tune] -q
+
+# Install Ray with tune support
+!/kaggle/working/venv/bin/pip install "ray[tune]" -q
+
+# Install remaining packages
 !/kaggle/working/venv/bin/pip install pyyaml torch-tps opencv-python-headless pillow pandas tqdm yacs scikit-image matplotlib -q
 
 # Verify installation
 print("\n📋 Verifying venv installation:")
-!/kaggle/working/venv/bin/python -c "import numpy; print(f'NumPy: {numpy.__version__}')"
-!/kaggle/working/venv/bin/python -c "import scipy; print(f'SciPy: {scipy.__version__}')"
+!/kaggle/working/venv/bin/python -c "import numpy; print(f'NumPy: {numpy.__version__}'); assert numpy.__version__ == '1.26.4', f'Wrong numpy version: {numpy.__version__}'"
+!/kaggle/working/venv/bin/python -c "import scipy; print(f'SciPy: {scipy.__version__}'); assert scipy.__version__ == '1.12.0', f'Wrong scipy version: {scipy.__version__}'"
 !/kaggle/working/venv/bin/python -c "from scipy.optimize import linear_sum_assignment; print('scipy.optimize: OK')"
+!/kaggle/working/venv/bin/python -c "import sklearn; print(f'scikit-learn: {sklearn.__version__}')"
 !/kaggle/working/venv/bin/python -c "import torch; print(f'PyTorch: {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
+!/kaggle/working/venv/bin/python -c "import matplotlib; print(f'Matplotlib: {matplotlib.__version__}, Backend: {matplotlib.get_backend()}')"
 
 print("\n✅ Virtual environment ready! No restart needed.")
 
 # ============================================================================
 # CELL 2: Download Pre-trained Weights
 # ============================================================================
+# Fix matplotlib backend error in venv context
+import os
+if 'MPLBACKEND' in os.environ:
+    print("🔧 Unsetting incompatible MPLBACKEND for venv context...")
+    del os.environ['MPLBACKEND']
+    os.environ['MPLBACKEND'] = 'Agg'  # Non-interactive backend
+
 print("⚖️ Installing Git LFS and downloading weights...")
 !apt-get install -qq git-lfs
 !git lfs install

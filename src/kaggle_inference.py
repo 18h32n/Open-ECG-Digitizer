@@ -218,6 +218,11 @@ def main(config: CN) -> None:
     Args:
         config: Configuration node.
     """
+    # Fix matplotlib backend for non-Jupyter environments
+    import os
+    if os.environ.get('MPLBACKEND', '').startswith('module://'):
+        os.environ['MPLBACKEND'] = 'Agg'
+
     # Load test metadata
     test_csv_path = config.DATA.test_csv_path
     test_images_dir = config.DATA.test_images_dir
