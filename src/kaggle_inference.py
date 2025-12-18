@@ -311,7 +311,18 @@ def main(config: CN) -> None:
 
     # Create submission dataframe
     print("Creating submission file...")
+    print(f"DEBUG: all_predictions has {len(all_predictions)} images")
+    for img_id, preds in list(all_predictions.items())[:1]:  # Check first image
+        print(f"DEBUG: Image {img_id} has {len(preds)} leads")
+        for lead_name, signal in list(preds.items())[:2]:  # Check first 2 leads
+            print(f"DEBUG: Lead {lead_name}: shape={signal.shape}, dtype={signal.dtype}, sample={signal[:3]}")
+
     submission_df = create_submission_dataframe(test_df, all_predictions)
+
+    print(f"DEBUG: DataFrame shape: {submission_df.shape}")
+    print(f"DEBUG: DataFrame columns: {submission_df.columns.tolist()}")
+    print(f"DEBUG: First 5 rows:\n{submission_df.head()}")
+    print(f"DEBUG: Value column stats: min={submission_df['value'].min()}, max={submission_df['value'].max()}, nulls={submission_df['value'].isna().sum()}")
 
     # Save submission
     os.makedirs(os.path.dirname(submission_path), exist_ok=True)
