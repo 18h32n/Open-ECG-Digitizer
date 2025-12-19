@@ -20,6 +20,7 @@ class LeadIdentifier:
         possibly_flipped: bool = True,
         target_num_samples: int = 5000,
         required_valid_samples: int = 3,
+        detection_threshold: float = 0.5,
         debug: bool = False,
     ) -> None:
         """
@@ -30,6 +31,7 @@ class LeadIdentifier:
             possibly_flipped: whether to check for flipped layouts (caused by upside-down images)
             target_num_samples: number of samples (seconds*sample rate) that the output should contain.
             required_valid_samples: minimum number of non-NaN samples in a column to consider it valid. Decides where the signal is cropped.
+            detection_threshold: probability threshold for lead detection (lower = more sensitive, default 0.5)
             debug: whether to draw scatter/plots.
         """
         self.layouts = layouts
@@ -38,6 +40,7 @@ class LeadIdentifier:
         self.possibly_flipped = possibly_flipped
         self.target_num_samples = target_num_samples
         self.required_valid_samples = required_valid_samples
+        self.detection_threshold = detection_threshold
         self.debug = debug
 
     def _merge_nonoverlapping_lines(self, lines: torch.Tensor) -> torch.Tensor:
@@ -452,10 +455,13 @@ class LeadIdentifier:
         lines: torch.Tensor,
         feature_map: torch.Tensor,
         avg_pixel_per_mm: float,
-        threshold: float = 0.8,
+        threshold: Optional[float] = None,
         mv_per_mm: float = 0.1,
         layout_should_include_substring: Optional[str] = None,
     ) -> dict[str, Any]:
+        # Use instance detection_threshold if not provided
+        if threshold is None:
+            threshold = self.detection_threshold
         lines = self._merge_nonoverlapping_lines(lines)
         lines = -self.normalize(lines, avg_pixel_per_mm, mv_per_mm)
         layouts = self.layouts.copy()

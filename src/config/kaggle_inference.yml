@@ -48,6 +48,7 @@ MODEL:
           debug: false
           device: 'cuda'
           possibly_flipped: true
+          detection_threshold: 0.5  # Lower threshold for better lead detection (default was 0.8)
 
     device: 'cuda'
     resample_size: 3000

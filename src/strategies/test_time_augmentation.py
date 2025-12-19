@@ -232,11 +232,26 @@ class TestTimeAugmentation:
         predictions_tensor = torch.stack(all_predictions)  # (n_augs, 12, n_samples)
         confidences_tensor = torch.tensor(all_confidences).unsqueeze(-1).unsqueeze(-1)  # (n_augs, 1, 1)
 
-        # Normalize confidences
-        confidences_tensor = confidences_tensor / confidences_tensor.sum()
+        # Filter out predictions with NaN to prevent contamination
+        # Check which augmentations have ANY NaN values
+        has_nan_mask = torch.isnan(predictions_tensor).any(dim=(1, 2))  # (n_augs,)
+        valid_mask = ~has_nan_mask
 
-        # Weighted average
-        averaged_prediction = (predictions_tensor * confidences_tensor).sum(dim=0)
+        if valid_mask.any():
+            # Use only predictions without NaN
+            valid_predictions = predictions_tensor[valid_mask]
+            valid_confidences = confidences_tensor[valid_mask]
+
+            # Normalize confidences for valid predictions only
+            valid_confidences = valid_confidences / valid_confidences.sum()
+
+            # Weighted average of valid predictions
+            averaged_prediction = (valid_predictions * valid_confidences).sum(dim=0)
+            print(f"  TTA: Using {valid_mask.sum()}/{len(all_predictions)} augmentations (filtered {has_nan_mask.sum()} with NaN)")
+        else:
+            # All predictions have some NaN - use nanmean as fallback
+            print(f"  TTA: All augmentations have NaN, using nanmean fallback")
+            averaged_prediction = torch.nanmean(predictions_tensor, dim=0)
 
         # Update result with averaged prediction
         result["signal"]["canonical_lines"] = averaged_prediction
