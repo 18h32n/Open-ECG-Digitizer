@@ -193,6 +193,22 @@ class TestTimeAugmentation:
         Returns:
             Dictionary with averaged predictions and metadata
         """
+        # First, run model without augmentation to check data quality
+        result = self.model(image, layout_should_include_substring=layout_should_include_substring)
+
+        # Check if canonical signals have too many NaN values
+        canonical_test = result.get("signal", {}).get("canonical_lines")
+        if canonical_test is None:
+            canonical_test = result.get("canonical_lines")
+
+        if canonical_test is not None:
+            nan_percentage = (torch.isnan(canonical_test).sum() / canonical_test.numel()).item()
+            if nan_percentage > 0.5:
+                print(f"⚠️ Skipping TTA: Input has {nan_percentage*100:.1f}% NaN values")
+                print(f"  TTA augmentation would corrupt remaining valid data")
+                print(f"  Returning baseline result without augmentation")
+                return result
+
         all_predictions = []
         all_confidences = []
 
