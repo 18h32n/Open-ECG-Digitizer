@@ -478,10 +478,13 @@ class LeadIdentifier:
         with torch.no_grad():
             logits: torch.Tensor = self.unet(feature_map.to(self.device))  # [1,13,H,W]
             probs: torch.Tensor = torch.softmax(logits, dim=1)[:, :12]  # [1,12,H,W]
-            probs[:, 0] = 0  # Ignore the position of the "I" lead as it is particularly prone to false positives.
+            # probs[:, 0] = 0  # TEMPORARILY DISABLED - we need all leads detected
         probs[probs < threshold] = 0
         detected: list[tuple[str, float, float]] = self._extract_lead_points(probs, self.LEAD_CHANNEL_ORDER)
-        if len(detected) <= 2:
+        print(f"🔍 Lead detection: found {len(detected)} leads with threshold={threshold}")
+        for lead_name, x, y in detected:
+            print(f"  └─ {lead_name}: position=({x:.1f}, {y:.1f})")
+        if len(detected) <= 1:  # Changed from <= 2 to <= 1 (allow 2+ leads to proceed)
             match: dict[str, Any] = {"cost": float("inf")}
             canonical_lines: Optional[torch.Tensor] = None
         else:
@@ -492,6 +495,15 @@ class LeadIdentifier:
             match["layout"] = list(layouts.keys())[0]
 
         canonical_lines = self._canonicalize_lines(lines.clone(), match)
+        if canonical_lines is not None:
+            print(f"📊 Canonical lines shape: {canonical_lines.shape}")
+            for i, lead_name in enumerate(self.LEAD_CHANNEL_ORDER):
+                if i < canonical_lines.shape[0]:
+                    nan_pct = (torch.isnan(canonical_lines[i]).sum() / canonical_lines.shape[1] * 100).item()
+                    valid_count = (~torch.isnan(canonical_lines[i])).sum().item()
+                    print(f"  └─ {lead_name}: {nan_pct:.1f}% NaN, {valid_count} valid samples")
+        else:
+            print(f"⚠️  Canonical lines is None (likely ≤2 leads detected)")
 
         return {
             "rows_in_layout": rows_in_layout,

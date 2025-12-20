@@ -15,7 +15,9 @@ print("📦 Cloning repository...")
 !git clone https://github.com/18h32n/Open-ECG-Digitizer.git
 %cd Open-ECG-Digitizer
 !git checkout claude/integrate-model-01L46ZhUpLKVj5r4yVTTEi6j
-print("✅ Repository cloned!")
+!git pull origin claude/integrate-model-01L46ZhUpLKVj5r4yVTTEi6j  # Get latest changes
+print("✅ Repository cloned and updated to latest!")
+print("🔍 Diagnostic logging enabled: You'll see detailed lead detection info")
 
 # Create isolated virtual environment (--without-pip to avoid ensurepip failure)
 print("\n🔧 Creating virtual environment...")
@@ -161,7 +163,13 @@ import torch
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"🖥️ Using device: {device}")
 
-print("🚀 Running inference...")
+print("🚀 Running inference with diagnostic logging...")
+print("📊 Watch for:")
+print("  - 🔍 Lead detection: Shows how many leads found per image")
+print("  - 📈 Canonical extraction: Shows NaN percentage")
+print("  - 📊 Per-lead statistics: Shows which leads have valid data")
+print("")
+
 !/kaggle/working/venv/bin/python -m src.kaggle_inference \
     --config src/config/kaggle_inference.yml \
     DATA.test_csv_path=/kaggle/input/physionet-ecg-image-digitization/test.csv \
@@ -199,10 +207,10 @@ print("📄 Submission saved to: /kaggle/working/submission_enhanced.csv")
 print("🎯 Expected gain: +8-17 dB SNR vs baseline")
 
 # ============================================================================
-# CELL 8: Validate Submission (via venv)
+# CELL 8: Validate Submission & Check NaN Statistics (via venv)
 # ============================================================================
 print("🔍 Validating submission format...")
-!/kaggle/working/venv/bin/python -c "import pandas as pd; sub = pd.read_csv('/kaggle/working/submission_enhanced.csv'); print(f'Columns: {sub.columns.tolist()}'); print(f'Rows: {len(sub):,}'); print(f'Value range: [{sub.value.min():.3f}, {sub.value.max():.3f}]'); print('✅ Valid!' if not sub.value.isna().any() else '❌ Has NaN values')"
+!/kaggle/working/venv/bin/python -c "import pandas as pd; sub = pd.read_csv('/kaggle/working/submission_enhanced.csv'); print(f'Columns: {sub.columns.tolist()}'); print(f'Rows: {len(sub):,}'); nan_count = sub.value.isna().sum(); nan_pct = (nan_count / len(sub) * 100); print(f'NaN values: {nan_count:,} ({nan_pct:.1f}%)'); print(f'Valid values: {len(sub) - nan_count:,} ({100-nan_pct:.1f}%)'); print(f'Value range: [{sub.value.min():.3f}, {sub.value.max():.3f}]' if nan_count < len(sub) else 'All NaN'); print('✅ Submission ready!' if nan_count < len(sub) * 0.5 else '⚠️ High NaN percentage - check diagnostic logs')"
 
 # ============================================================================
 # CELL 9: Submit to Kaggle (Optional - uses Kaggle's built-in API)

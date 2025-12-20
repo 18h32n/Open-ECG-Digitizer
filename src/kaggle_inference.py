@@ -125,9 +125,15 @@ def process_single_image(
 
     # Run inference
     got_values = inference_wrapper(image, layout_should_include_substring=None)
+    print(f"\n{'='*60}")
+    print(f"🖼️  Processing image: {image_id}")
+    print(f"{'='*60}")
 
     # Extract canonical signals (shape: 12, n_samples) in µV
     canonical = extract_canonical_signals(got_values)
+    if canonical is not None:
+        overall_nan_pct = (torch.isnan(canonical).sum() / canonical.numel() * 100).item()
+        print(f"📈 Canonical extraction: {canonical.shape}, {overall_nan_pct:.1f}% NaN")
 
     # Check if canonical extraction failed or has too many NaN values
     if canonical is None or (torch.isnan(canonical).sum() / canonical.numel() > 0.5):
