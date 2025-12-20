@@ -8,10 +8,17 @@ from typing import Any, Dict, List, Optional, Tuple
 import matplotlib.pyplot as plt
 import torch
 import torch.optim.optimizer
-from ray.tune import Stopper
 from torch import nn
 from torch.utils.data import DataLoader
 from yacs.config import CfgNode as CN
+
+# Ray is only needed for training, make it optional for inference
+try:
+    from ray.tune import Stopper
+    _HAS_RAY = True
+except ImportError:
+    _HAS_RAY = False
+    Stopper = object  # Fallback base class for type checking
 
 
 class EarlyStopper(Stopper):

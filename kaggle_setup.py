@@ -53,8 +53,7 @@ print("\n📚 Installing dependencies in venv...")
 # Install PyTorch with CUDA support (with constraints to prevent numpy upgrade)
 !/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
 
-# Install Ray with tune support (with constraints)
-!/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt "ray[tune]" -q
+# Note: ray[tune] is only needed for training, not inference - skipping to avoid dependency conflicts
 
 # Install remaining packages with constraints (opencv already installed, will be skipped)
 !/kaggle/working/venv/bin/pip install -c /tmp/constraints.txt pyyaml torch-tps pillow pandas tqdm yacs scikit-image matplotlib -q
