@@ -147,11 +147,8 @@ class LeadIdentifier:
                     lead_name = lead_name[1:]
                 if lead_name in canonical_order:
                     canon_idx: int = canonical_order.index(lead_name)
-                    # FIX: Place chunk at start of row instead of original column position
-                    # This prevents sparse canonical tensor with ~75% NaN values
-                    chunk_len = end - start
-                    canonical[canon_idx, :chunk_len] = sign * chunk
-                    used_indices.add((canon_idx, 0, chunk_len))
+                    canonical[canon_idx, start:end] = sign * chunk
+                    used_indices.add((canon_idx, start, end))
 
         # If there are any rythm, leads, we try to match them with the canonical leads, through cosine similarity.
         num_rhythm_leads: int = len(rhythm_leads)

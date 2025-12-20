@@ -200,8 +200,40 @@ def process_single_image(
         else:
             target_samples = other_samples
 
-        # Resample to target length
-        resampled_signal = resample_signal(signal, target_samples)
+        # Extract only the valid (non-NaN) portion of the signal
+        # The canonical tensor has grid leads placed at column positions, leaving NaN gaps
+        # We need to extract just the valid data before resampling
+        valid_mask = ~np.isnan(signal)
+        valid_count = valid_mask.sum()
+
+        if valid_count < 10:  # Too few valid samples
+            results[lead_name] = np.full(target_samples, np.nan)
+            continue
+
+        # Find the continuous valid region
+        valid_indices = np.where(valid_mask)[0]
+        start_idx = valid_indices[0]
+        end_idx = valid_indices[-1] + 1
+
+        # Extract the valid portion
+        valid_signal = signal[start_idx:end_idx]
+
+        # Remove any remaining NaN values within the valid region
+        if np.isnan(valid_signal).any():
+            # Interpolate over NaN values within the valid region
+            nan_indices = np.isnan(valid_signal)
+            if not nan_indices.all():
+                valid_signal = np.copy(valid_signal)
+                # Simple linear interpolation over NaN gaps
+                x = np.arange(len(valid_signal))
+                valid_signal[nan_indices] = np.interp(
+                    x[nan_indices],
+                    x[~nan_indices],
+                    valid_signal[~nan_indices]
+                )
+
+        # Resample the valid signal to target length
+        resampled_signal = resample_signal(valid_signal, target_samples)
 
         results[lead_name] = resampled_signal
 
