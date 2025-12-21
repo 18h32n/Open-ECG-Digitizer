@@ -156,18 +156,17 @@ def process_single_image(
     if signals.ndim == 1:
         signals = signals[None, :]
 
-    # Convert from µV to mV before applying constraints
+    # Convert from µV to mV
     signals = signals / 1000.0  # Now in mV
 
-    # Apply physiological constraints if enabled
-    if use_constraints and STRATEGIES_AVAILABLE:
-        signals = apply_constraints_to_predictions(signals, fs=fs, alpha=constraint_alpha)
+    # NOTE: Physiological constraints are applied AFTER smart extraction
+    # to avoid NaN propagation through mathematical operations
 
     # Calculate target lengths for each lead
     lead_ii_samples = int(np.floor(fs * 10))  # 10 seconds for Lead II
     other_samples = int(np.floor(fs * 2.5))   # 2.5 seconds for other leads
 
-    # Process each lead
+    # Process each lead with smart extraction
     results = {}
     for i, lead_name in enumerate(LEAD_NAMES):
         if i >= signals.shape[0]:
@@ -220,6 +219,18 @@ def process_single_image(
         resampled_signal = resample_signal(valid_signal, target_samples)
 
         results[lead_name] = resampled_signal
+
+    # Apply physiological constraints AFTER extraction to avoid NaN propagation
+    if use_constraints and STRATEGIES_AVAILABLE:
+        # Convert back to array format for constraint application
+        signals_array = np.array([results[name] for name in LEAD_NAMES])
+
+        # Apply constraints
+        corrected_array = apply_constraints_to_predictions(signals_array, fs=fs, alpha=constraint_alpha)
+
+        # Update results with corrected values
+        for i, lead_name in enumerate(LEAD_NAMES):
+            results[lead_name] = corrected_array[i]
 
     return results
 
