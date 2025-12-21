@@ -135,37 +135,21 @@ def process_single_image(
         overall_nan_pct = (torch.isnan(canonical).sum() / canonical.numel() * 100).item()
         print(f"📈 Canonical extraction: {canonical.shape}, {overall_nan_pct:.1f}% NaN")
 
-    # Check if canonical extraction failed or has too many NaN values
-    if canonical is None or (torch.isnan(canonical).sum() / canonical.numel() > 0.5):
-        if canonical is not None:
-            nan_percentage = (torch.isnan(canonical).sum() / canonical.numel() * 100).item()
-            print(f"Warning: Canonical extraction has {nan_percentage:.1f}% NaN values for {image_id}, trying raw_lines fallback")
-        else:
-            print(f"Warning: No canonical signals extracted for {image_id}, trying raw_lines fallback")
+    # Check if canonical extraction completely failed (None)
+    # Note: High NaN percentage is OK - our smart extraction handles sparse signals
+    if canonical is None:
+        print(f"Warning: No canonical signals extracted for {image_id}, returning NaN")
+        # Return NaN arrays with correct shape
+        lead_ii_samples = int(np.floor(fs * 10))
+        other_samples = int(np.floor(fs * 2.5))
 
-        # Try fallback to raw_lines
-        raw_lines = None
-        if "signal" in got_values and isinstance(got_values["signal"], dict):
-            raw_lines = got_values["signal"].get("raw_lines")
-        elif "raw_lines" in got_values:
-            raw_lines = got_values["raw_lines"]
-
-        if raw_lines is not None and not torch.isnan(raw_lines).all():
-            print(f"  Using raw_lines fallback with shape {raw_lines.shape}")
-            canonical = raw_lines
-        else:
-            print(f"  Raw_lines fallback also failed, returning NaN")
-            # Return NaN arrays with correct shape
-            lead_ii_samples = int(np.floor(fs * 10))
-            other_samples = int(np.floor(fs * 2.5))
-
-            results = {}
-            for i, lead_name in enumerate(LEAD_NAMES):
-                if i == LEAD_II_INDEX:
-                    results[lead_name] = np.full(lead_ii_samples, np.nan)
-                else:
-                    results[lead_name] = np.full(other_samples, np.nan)
-            return results
+        results = {}
+        for i, lead_name in enumerate(LEAD_NAMES):
+            if i == LEAD_II_INDEX:
+                results[lead_name] = np.full(lead_ii_samples, np.nan)
+            else:
+                results[lead_name] = np.full(other_samples, np.nan)
+        return results
 
     # Convert to numpy and handle shape
     signals = canonical.squeeze().cpu().numpy()
