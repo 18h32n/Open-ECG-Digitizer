@@ -222,15 +222,38 @@ def process_single_image(
 
     # Apply physiological constraints AFTER extraction to avoid NaN propagation
     if use_constraints and STRATEGIES_AVAILABLE:
-        # Convert back to array format for constraint application
-        signals_array = np.array([results[name] for name in LEAD_NAMES])
+        # STEP 1: Normalize all leads to common length for time-aligned constraint application
+        # Use 5000 samples as reference for maximum temporal resolution
+        common_length = 5000
 
-        # Apply constraints
+        normalized_signals = []
+        for lead_name in LEAD_NAMES:
+            signal = results[lead_name]
+            if len(signal) != common_length:
+                # Resample to common length using existing resample_signal function
+                normalized_signal = resample_signal(signal, common_length)
+            else:
+                normalized_signal = signal
+            normalized_signals.append(normalized_signal)
+
+        # STEP 2: Convert to array (now all same length)
+        signals_array = np.array(normalized_signals)  # Shape: (12, 5000)
+
+        # STEP 3: Apply physiological constraints to time-aligned signals
         corrected_array = apply_constraints_to_predictions(signals_array, fs=fs, alpha=constraint_alpha)
 
-        # Update results with corrected values
+        # STEP 4: Resample corrected signals back to competition-specific lengths
         for i, lead_name in enumerate(LEAD_NAMES):
-            results[lead_name] = corrected_array[i]
+            corrected_signal = corrected_array[i]
+
+            # Determine target length for this lead
+            original_length = len(results[lead_name])
+
+            # Resample if needed
+            if len(corrected_signal) != original_length:
+                results[lead_name] = resample_signal(corrected_signal, original_length)
+            else:
+                results[lead_name] = corrected_signal
 
     return results
 

@@ -6,3 +6,4 @@ venv
 src/scripts/visualized_transforms
 src/report/figures
 sandbox/
+kaggle_dataset

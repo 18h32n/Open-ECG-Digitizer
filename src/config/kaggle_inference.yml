@@ -72,6 +72,6 @@ STRATEGIES:
   tta_n_augmentations: 10
 
   # Enable physiological constraint enforcement
-  use_physiological_constraints: false
+  use_physiological_constraints: true
   constraint_alpha: 0.3  # Strength of constraint (0 = none, 1 = full)
 
