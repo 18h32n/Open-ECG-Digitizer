@@ -220,6 +220,35 @@ def process_single_image(
 
         results[lead_name] = resampled_signal
 
+    # Apply signal-level TTA AFTER smart extraction
+    if use_tta and STRATEGIES_AVAILABLE:
+        try:
+            from src.strategies.signal_augmentation import create_augmentation_set, average_augmented_results
+
+            # Check if results are suitable for TTA (need sufficient valid data)
+            total_valid_samples = sum(len(signal) for signal in results.values())
+            # Calculate expected total based on target lengths
+            lead_ii_samples = int(fs * duration_lead_ii)
+            other_samples = int(fs * duration_others)
+            expected_total = lead_ii_samples + (len(LEAD_NAMES) - 1) * other_samples
+            valid_ratio = total_valid_samples / expected_total if expected_total > 0 else 0
+
+            if valid_ratio > 0.8:  # Only apply if >80% data is valid
+                print(f"🔄 Applying signal-level TTA with {tta_n_augmentations} augmentations (valid data: {valid_ratio*100:.1f}%)...")
+
+                # Create augmented versions
+                aug_results = create_augmentation_set(results, n_augmentations=tta_n_augmentations)
+
+                # Average across augmentations
+                results = average_augmented_results(aug_results)
+
+                print(f"✅ Signal-level TTA applied successfully")
+            else:
+                print(f"⚠️ Skipping signal-level TTA: Only {valid_ratio*100:.1f}% valid data (threshold: 80%)")
+
+        except ImportError:
+            print("⚠️ Signal augmentation module not available, skipping TTA")
+
     # Apply physiological constraints AFTER extraction to avoid NaN propagation
     if use_constraints and STRATEGIES_AVAILABLE:
         # STEP 1: Normalize all leads to common length for time-aligned constraint application

@@ -68,7 +68,7 @@ DATA:
 
 STRATEGIES:
   # Enable test-time augmentation for improved robustness
-  use_tta: false
+  use_tta: true
   tta_n_augmentations: 10
 
   # Enable physiological constraint enforcement
