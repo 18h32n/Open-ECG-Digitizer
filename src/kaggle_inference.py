@@ -106,6 +106,10 @@ def process_single_image(
     inference_wrapper: Any,
     use_constraints: bool = False,
     constraint_alpha: float = 0.3,
+    use_tta: bool = False,
+    tta_n_augmentations: int = 10,
+    duration_lead_ii: float = 10.0,
+    duration_others: float = 2.5,
 ) -> dict[str, npt.NDArray[Any]]:
     """Process a single ECG image and return digitized signals.
 
@@ -116,6 +120,10 @@ def process_single_image(
         inference_wrapper: Initialized inference wrapper model.
         use_constraints: Whether to apply physiological constraints.
         constraint_alpha: Strength of constraint enforcement.
+        use_tta: Whether to apply test-time augmentation.
+        tta_n_augmentations: Number of augmentations for TTA.
+        duration_lead_ii: Duration of Lead II in seconds.
+        duration_others: Duration of other leads in seconds.
 
     Returns:
         Dictionary mapping lead names to signal arrays in mV.
@@ -337,6 +345,10 @@ def main(config: CN) -> None:
     tta_n_augmentations = config.get("STRATEGIES", {}).get("tta_n_augmentations", 10)
     constraint_alpha = config.get("STRATEGIES", {}).get("constraint_alpha", 0.3)
 
+    # Get duration settings from config
+    duration_lead_ii = config.get("INFERENCE", {}).get("duration_lead_ii", 10.0)
+    duration_others = config.get("INFERENCE", {}).get("duration_others", 2.5)
+
     print(f"Loading test metadata from {test_csv_path}")
     test_df = pd.read_csv(test_csv_path)
 
@@ -394,6 +406,10 @@ def main(config: CN) -> None:
                 inference_wrapper=inference_wrapper,
                 use_constraints=use_physiological_constraints,
                 constraint_alpha=constraint_alpha,
+                use_tta=use_tta,
+                tta_n_augmentations=tta_n_augmentations,
+                duration_lead_ii=duration_lead_ii,
+                duration_others=duration_others,
             )
             all_predictions[image_id] = predictions
 
