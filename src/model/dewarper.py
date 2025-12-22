@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -8,7 +8,12 @@ import numpy.typing as npt
 import torch
 from skimage.feature import peak_local_max
 from sklearn.neighbors import NearestNeighbors
-from torch_tps import ThinPlateSpline
+
+# Lazy import: only load torch_tps when actually needed
+# This allows the module to load even if torch-tps isn't installed
+# (dewarping is disabled by default, so this is fine for offline use)
+if TYPE_CHECKING:
+    from torch_tps import ThinPlateSpline
 
 DEBUG = False
 # If DEBUG is True, specify a directory to save plots
@@ -434,6 +439,15 @@ class Dewarper(torch.nn.Module):
         height, width = self.grid_probabilities.shape
         size = torch.tensor([height, width], dtype=torch.float32).to(device)
 
+        # Lazy import - only import when dewarping is actually called
+        try:
+            from torch_tps import ThinPlateSpline
+        except ImportError:
+            raise ImportError(
+                "torch-tps is required for dewarping but is not installed. "
+                "Install it with: pip install torch-tps"
+            )
+
         tps = ThinPlateSpline(1, device=device, order=1)
 
         # Sample control points for TPS if there are too many
@@ -466,7 +480,11 @@ class Dewarper(torch.nn.Module):
         if self.grid is None:
             raise ValueError("Grid has not been initialized. Call fit() first.")
         warped = torch.nn.functional.grid_sample(
-            feature_map.unsqueeze(0).unsqueeze(0), self.grid[None, ...].to(feature_map.device), align_corners=False
+            feature_map.unsqueeze(0).unsqueeze(0),
+            self.grid[None, ...].to(feature_map.device),
+            mode='bilinear',
+            padding_mode='border',
+            align_corners=False
         )[0]
         if DEBUG:
             plt.figure(figsize=(10, 5))
