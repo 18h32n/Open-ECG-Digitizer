@@ -407,7 +407,21 @@ class LeadIdentifier:
         interpolated_lines: list[torch.Tensor] = []
         for i in range(num_leads):
             lead_line: NDArray[np.float64] = lines[i].cpu().numpy()
-            interpolated_line: NDArray[np.float64] = np.interp(x_new, x, lead_line)
+
+            # Handle NaN values: interpolate only over valid data points
+            valid_mask = ~np.isnan(lead_line)
+            if valid_mask.sum() == 0:
+                # If all NaN, keep as NaN
+                interpolated_line = np.full(target_num_samples, np.nan, dtype=np.float64)
+            elif valid_mask.sum() == 1:
+                # If only one valid point, fill with that constant value
+                interpolated_line = np.full(target_num_samples, lead_line[valid_mask][0], dtype=np.float64)
+            else:
+                # Interpolate over valid points and extrapolate/fill NaN regions
+                x_valid = x[valid_mask]
+                y_valid = lead_line[valid_mask]
+                interpolated_line = np.interp(x_new, x_valid, y_valid)
+
             interpolated_lines.append(torch.tensor(interpolated_line, dtype=lines.dtype, device=lines.device))
         if len(interpolated_lines) == 0:
             return torch.empty((num_leads, target_num_samples), dtype=lines.dtype, device=lines.device)
