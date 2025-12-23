@@ -509,6 +509,12 @@ class LeadIdentifier:
             match["layout"] = list(layouts.keys())[0]
 
         canonical_lines = self._canonicalize_lines(lines.clone(), match)
+
+        # Fill NaN regions in canonical lines using interpolation
+        # This is necessary because canonicalization creates NaN gaps when splitting multi-column layouts
+        if canonical_lines is not None:
+            canonical_lines = self._interpolate_lines(canonical_lines, canonical_lines.shape[1])
+
         if canonical_lines is not None:
             print(f"📊 Canonical lines shape: {canonical_lines.shape}")
             for i, lead_name in enumerate(self.LEAD_CHANNEL_ORDER):
