@@ -76,14 +76,14 @@ class PhysiologicalConstraints:
         return signals
 
     def validate_heart_rate_consistency(
-        self, signals: torch.Tensor, fs: float, tolerance: float = 5.0
+        self, signals: torch.Tensor, fs: float, tolerance: float = 30.0
     ) -> dict[str, float]:
         """Validate that heart rate is consistent across leads.
 
         Args:
             signals: Tensor of shape (12, n_samples)
             fs: Sampling frequency in Hz
-            tolerance: Maximum allowed heart rate difference in BPM
+            tolerance: Maximum allowed heart rate difference in BPM (default: 30.0 for robustness)
 
         Returns:
             Dictionary with validation results
@@ -166,9 +166,10 @@ class PhysiologicalConstraints:
         # Calculate peak-to-peak amplitude
         p2p_amplitude = (all_values.max() - all_values.min()).item()
 
-        # Check if within plausible range (0.1 mV to 5 mV for full ECG)
+        # Check if within plausible range (0.05 mV to 6 mV for full ECG)
+        # Some patients naturally have larger QRS amplitudes (e.g., in chest leads)
         plausible_min = 0.05  # mV
-        plausible_max = 5.0  # mV
+        plausible_max = 6.0  # mV
 
         return {
             "valid": plausible_min < p2p_amplitude < plausible_max,

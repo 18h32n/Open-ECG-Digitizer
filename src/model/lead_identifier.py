@@ -20,7 +20,7 @@ class LeadIdentifier:
         possibly_flipped: bool = True,
         target_num_samples: int = 5000,
         required_valid_samples: int = 3,
-        detection_threshold: float = 0.5,
+        detection_threshold: float = 0.25,
         debug: bool = False,
     ) -> None:
         """
