@@ -1,0 +1,90 @@
+# Kaggle ECG Training Configuration
+# Optimized for P100/T4 GPU with 16GB memory
+
+# Model configuration
+MODEL:
+  # UNet backbone
+  UNET:
+    num_in_channels: 3
+    num_out_channels: 4
+    depth: 3
+    dims: [32, 64, 128, 256, 512]
+
+  # Signal extraction head
+  SIGNAL_HEAD:
+    signal_length: 5000
+    num_leads: 12
+    signal_class: 2
+    soft_argmax_beta: 20.0
+
+  # Pre-trained weights (if available)
+  pretrained_unet_path: './weights/unet_weights_07072025.pt'
+
+# Training configuration
+TRAIN:
+  # Total epochs
+  epochs: 15
+
+  # Learning rate
+  learning_rate: 1.0e-4
+  min_learning_rate: 1.0e-6
+
+  # Weight decay
+  weight_decay: 0.01
+
+  # Phase 1: Freeze UNet encoder
+  freeze_unet_epochs: 5
+
+  # Mixed precision
+  use_amp: true
+
+  # Gradient clipping
+  max_grad_norm: 1.0
+
+  # Checkpoint frequency
+  checkpoint_freq: 1
+
+  # Early stopping
+  early_stopping_patience: 5
+
+# Loss function configuration
+LOSS:
+  # MSE weight for signal amplitude
+  mse_weight: 1.0
+
+  # Correlation weight for waveform shape
+  correlation_weight: 0.5
+
+  # Goldberger equation weight for physiological consistency
+  goldberger_weight: 0.1
+
+# Dataset configuration
+DATASET:
+  # Signal parameters
+  target_length: 5000
+  target_fs: 500.0
+
+  # Validation split
+  val_ratio: 0.1
+
+  # Which degradation types to use (null for all)
+  degradation_types: null
+
+  # Signal caching (memory vs speed trade-off)
+  cache_signals: true
+
+# Dataloader configuration
+DATALOADER:
+  batch_size: 4
+  num_workers: 2
+  pin_memory: true
+  prefetch_factor: 2
+  drop_last: true
+
+# Output paths (will be overridden in Kaggle)
+OUTPUT:
+  checkpoint_dir: '/kaggle/working/checkpoints'
+  log_dir: '/kaggle/working/logs'
+
+# Device configuration
+DEVICE: 'cuda'
