@@ -14,6 +14,7 @@ import pandas as pd
 import torch
 from scipy import signal as scipy_signal
 from torchvision.io import decode_image
+import torchvision.transforms.functional as TF
 
 
 # Standard 12-lead order
@@ -211,6 +212,8 @@ class KaggleECGDataset(torch.utils.data.Dataset[Any]):
             self.train_dir, sample_id, f"{sample_id}-{degradation_suffix}.png"
         )
         image = decode_image(img_path, mode="RGB").float() / 255.0
+        # Resize to consistent dimensions for batching (H=1700, W=2200)
+        image = TF.resize(image, size=[1700, 2200], antialias=True)
         return image
 
     def __len__(self) -> int:
