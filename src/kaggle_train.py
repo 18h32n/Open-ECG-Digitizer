@@ -56,6 +56,7 @@ def create_model(
         num_out_channels=4,
         depth=3,
         dims=[32, 64, 128, 256, 512],
+        use_checkpoint=True,  # Enable gradient checkpointing to save memory
     )
 
     # Load pre-trained weights if available

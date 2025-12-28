@@ -2,6 +2,7 @@ from typing import List
 
 import torch
 from torch import nn
+from torch.utils.checkpoint import checkpoint
 
 
 class UNet(nn.Module):
@@ -11,11 +12,13 @@ class UNet(nn.Module):
         num_out_channels: int,
         depth: int,
         dims: List[int],
+        use_checkpoint: bool = False,
     ):
         super(UNet, self).__init__()
 
         self.depth = depth
         self.dims = dims
+        self.use_checkpoint = use_checkpoint
 
         # Encoder blocks
         self.encoders = nn.ModuleList(
@@ -69,7 +72,11 @@ class UNet(nn.Module):
         # Forward through decoders
         for i, (decoder, skip) in enumerate(zip(self.decoders, self.decoder_skips)):
             x = self._upsample(x, skips[i + 1])
-            x = decoder(torch.cat([x, skips[i + 1]], dim=1))
+            if self.use_checkpoint and self.training:
+                # Use gradient checkpointing to save memory during training
+                x = checkpoint(decoder, torch.cat([x, skips[i + 1]], dim=1), use_reentrant=False)
+            else:
+                x = decoder(torch.cat([x, skips[i + 1]], dim=1))
 
         # Final convolution to match output channels
         x = self.final_conv(x)
