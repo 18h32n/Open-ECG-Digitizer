@@ -75,7 +75,7 @@ DATASET:
 
 # Dataloader configuration
 DATALOADER:
-  batch_size: 4
+  batch_size: 2
   num_workers: 2
   pin_memory: true
   prefetch_factor: 2
